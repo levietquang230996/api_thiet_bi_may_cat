@@ -1,0 +1,152 @@
+{
+  "input_fields": [
+    "CATEGORYID",
+    "P_MANUFACTURERID",
+    "NATIONALFACT"
+  ],
+  "predicted_fields": [
+    "DATEMANUFACTURE",
+    "OWNER",
+    "LOAI",
+    "U_TT",
+    "KIEU_DAPHQ",
+    "I_DM",
+    "U_DM",
+    "KIEU_CD",
+    "TG_CATNM",
+    "PHA",
+    "KIEU_MC",
+    "KNCDNMDM",
+    "CT_DC"
+  ],
+  "predictions": {
+    "DATEMANUFACTURE": {
+      "target": "DATEMANUFACTURE",
+      "top1": "2019",
+      "top3": [
+        "2019",
+        "1998",
+        "2003"
+      ],
+      "source": "TransitionTable"
+    },
+    "OWNER": {
+      "target": "OWNER",
+      "top1": "TB0632",
+      "top3": [
+        "TB0632",
+        "TB0631"
+      ],
+      "source": "TransitionTable"
+    },
+    "LOAI": {
+      "target": "LOAI",
+      "top1": "TBI_CT_MC_KIEU_MC.99010",
+      "top3": [
+        "TBI_CT_MC_KIEU_MC.99010",
+        "TBI_CT_MC_KIEU_MC.000102",
+        "TBI_CT_MC_KIEU_MC.99005"
+      ],
+      "source": "TransitionTable"
+    },
+    "U_TT": {
+      "target": "U_TT",
+      "top1": "TBI_CT_MC_U_TT_02",
+      "top3": [
+        "TBI_CT_MC_U_TT_02",
+        "TBI_CT_MC_U_TT_02",
+        "TBI_CT_MC_U_TT_02"
+      ],
+      "source": "auto_fill_rule"
+    },
+    "KIEU_DAPHQ": {
+      "target": "KIEU_DAPHQ",
+      "top1": "TBI_TT_MC_KIEU_DAPHQ.00001",
+      "top3": [
+        "TBI_TT_MC_KIEU_DAPHQ.00001",
+        "TBI_TT_MC_KIEU_DAPHQ.00001",
+        "TBI_TT_MC_KIEU_DAPHQ.00001"
+      ],
+      "source": "auto_fill_rule"
+    },
+    "I_DM": {
+      "target": "I_DM",
+      "top1": "PB-100025",
+      "top3": [
+        "PB-100025",
+        "PB-100028",
+        "PB-100026"
+      ],
+      "source": "TransitionTable"
+    },
+    "U_DM": {
+      "target": "U_DM",
+      "top1": "TBI_CT_MC_U_DM_04",
+      "top3": [
+        "TBI_CT_MC_U_DM_04",
+        "TBI_CT_MC_U_DM_02",
+        "OTHER"
+      ],
+      "source": "TransitionTable"
+    },
+    "KIEU_CD": {
+      "target": "KIEU_CD",
+      "top1": "TBI_CT_MC_CC_CD.00001",
+      "top3": [
+        "TBI_CT_MC_CC_CD.00001",
+        "TBI_CT_MC_CC_CD.00001",
+        "TBI_CT_MC_CC_CD.00001"
+      ],
+      "source": "auto_fill_rule"
+    },
+    "TG_CATNM": {
+      "target": "TG_CATNM",
+      "top1": "PB-100081",
+      "top3": [
+        "PB-100081",
+        "PB-100080"
+      ],
+      "source": "TransitionTable"
+    },
+    "PHA": {
+      "target": "PHA",
+      "top1": "EVN.PHA_3P",
+      "top3": [
+        "EVN.PHA_3P",
+        "EVN.PHA_3P",
+        "EVN.PHA_3P"
+      ],
+      "source": "auto_fill_rule"
+    },
+    "KIEU_MC": {
+      "target": "KIEU_MC",
+      "top1": "TBI_CT_MC_KIEU_MC_01",
+      "top3": [
+        "TBI_CT_MC_KIEU_MC_01",
+        "TBI_CT_MC_KIEU_MC_01",
+        "TBI_CT_MC_KIEU_MC_01"
+      ],
+      "source": "auto_fill_rule"
+    },
+    "KNCDNMDM": {
+      "target": "KNCDNMDM",
+      "top1": "TBI_CT_MC_KNCDNMDM_01",
+      "top3": [
+        "TBI_CT_MC_KNCDNMDM_01",
+        "PB-501499",
+        "TBI_CT_MC_KNCDNMDM_02"
+      ],
+      "source": "TransitionTable"
+    },
+    "CT_DC": {
+      "target": "CT_DC",
+      "top1": "TBI_CT_MC_CT_DC_01",
+      "top3": [
+        "TBI_CT_MC_CT_DC_01",
+        "TBI_CT_MC_CT_DC_01",
+        "TBI_CT_MC_CT_DC_01"
+      ],
+      "source": "auto_fill"
+    }
+  }
+}

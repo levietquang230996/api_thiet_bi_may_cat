@@ -1,0 +1,17 @@
+# FastAPI và server
+fastapi==0.109.0
+uvicorn[standard]==0.27.0
+pydantic==2.5.3
+
+# Data processing
+numpy==1.26.3
+pandas==2.1.4
+
+# Machine Learning
+# PyTorch (sẽ tự động dùng CPU nếu không có GPU, nhẹ hơn cho free tier)
+torch==2.1.2
+catboost==1.2.2
+scikit-learn==1.4.0
+
+# Utilities
+python-multipart==0.0.6
