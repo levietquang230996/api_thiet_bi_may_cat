@@ -8,6 +8,7 @@ numpy>=1.24.0
 # Machine Learning
 scikit-learn>=1.3.0
 scipy>=1.11.0
+catboost>=1.2.0
 
 # NLP (optional, for sentence embeddings)
 sentence-transformers>=2.2.0
