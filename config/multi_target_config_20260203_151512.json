@@ -1,0 +1,51 @@
+{
+  "timestamp": "20260203_151512",
+  "targets": [
+    "LOAI",
+    "P_MANUFACTURERID"
+  ],
+  "feature_columns": [
+    "DATEMANUFACTURE",
+    "NATIONALFACT",
+    "OWNER",
+    "U_TT",
+    "KIEU_DAPHQ",
+    "I_DM",
+    "U_DM",
+    "KIEU_CD",
+    "TG_CATNM",
+    "PHA",
+    "KIEU_MC",
+    "KNCDNMDM",
+    "CT_DC"
+  ],
+  "text_columns": [
+    "ASSETDESC",
+    "FIELDDESC",
+    "OWNER_DESC",
+    "KIEU_MC_DESC",
+    "KIEU_DAPHQ_DESC"
+  ],
+  "results": {
+    "LOAI": {
+      "best_model": "GradientBoosting",
+      "n_classes": 34,
+      "metrics": {
+        "accuracy": 0.7490196078431373,
+        "precision": 0.7508106486259221,
+        "recall": 0.7490196078431373,
+        "f1": 0.7457124153766399
+      }
+    },
+    "P_MANUFACTURERID": {
+      "best_model": "GradientBoosting",
+      "n_classes": 28,
+      "metrics": {
+        "accuracy": 0.8117647058823529,
+        "precision": 0.8306634995195903,
+        "recall": 0.8117647058823529,
+        "f1": 0.8105819189613764
+      }
+    }
+  }
+}

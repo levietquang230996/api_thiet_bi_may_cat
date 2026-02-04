@@ -1,0 +1,30 @@
+============================================================
+LOG TIỀN XỬ LÝ DỮ LIỆU PMIS
+Thời gian: 2026-02-02 09:28:27
+============================================================
+
+THỐNG KÊ TRƯỚC KHI LÀM SẠCH:
+  total_rows: 1,755
+  total_null_strings: 0
+  total_nan: 1,078
+  duplicate_rows: 0
+  duplicate_assetid: 0
+
+THỐNG KÊ SAU KHI LÀM SẠCH:
+  total_rows: 1,696
+  total_null_strings: 0
+  total_nan: 182
+  duplicate_rows: 0
+  duplicate_assetid: 0
+
+QUY TẮC CHUẨN HÓA ĐÃ ÁP DỤNG:
+  PHA = EVN.PHA_3P
+  KIEU_MC = TBI_CT_MC_KIEU_MC_01
+  KIEU_DAPHQ = TBI_TT_MC_KIEU_DAPHQ.00001
+  KIEU_CD = TBI_CT_MC_CC_CD.00001
+  U_TT = TBI_CT_MC_U_TT_02
+  NATIONALFACT != TB040.00023
+
+FILE XUẤT:
+  - /home/aispcit/Documents/QuangLV/PMIS v 13/data/devicesPMISMayCat_cleaned.csv
+  - /home/aispcit/Documents/QuangLV/PMIS v 13/data/devicesPMISMayCat_cleaned_with_flags.csv
