@@ -19,6 +19,7 @@ import re
 import json
 import pickle
 import logging
+import asyncio
 from datetime import datetime
 from typing import List, Dict, Any, Optional
 from functools import wraps
@@ -179,7 +180,7 @@ class ThuocTinhThietBi(BaseModel):
     CATEGORYID: Optional[str] = None
     P_MANUFACTURERID: Optional[str] = None
     P_MANUFACTURERID_DESC: Optional[str] = None
-    DATEMANUFACTURE: Optional[int] = None
+    DATEMANUFACTURE: Optional[str] = None
     NATIONALFACT: Optional[str] = None
     FIELDDESC: Optional[str] = None
     OWNER: Optional[str] = None
@@ -330,22 +331,30 @@ class ModelLoader:
             self.tfidf_vectorizers = data.get('tfidf_vectorizers')
             logger.info("Loaded feature encoders (label + TF-IDF)")
         
-        # Models và target encoders cho từng target
-        target_map = [
-            ('loai', 'LOAI'),
-            ('p_manufacturerid', 'P_MANUFACTURERID'),
-        ]
-        for file_prefix, target_key in target_map:
+        # Models và target encoders cho tất cả targets đã train
+        # Ưu tiên lấy danh sách từ config (trained_targets), nếu không thì scan file
+        target_keys = []
+        if self.config and 'trained_targets' in self.config:
+            target_keys = self.config['trained_targets']
+        else:
+            # Scan thư mục models để tìm các target có classifier cho timestamp này
+            pattern = re.compile(r'^(.+)_classifier_' + re.escape(timestamp) + r'\.pkl$')
+            for f in os.listdir(MODEL_DIR):
+                m = pattern.match(f)
+                if m:
+                    # prefix lowercase -> target key (uppercase, ví dụ: p_manufacturerid -> P_MANUFACTURERID)
+                    target_keys.append(m.group(1).upper())
+
+        for target_key in target_keys:
+            file_prefix = target_key.lower()
             model_path = os.path.join(MODEL_DIR, f'{file_prefix}_classifier_{timestamp}.pkl')
             enc_path = os.path.join(MODEL_DIR, f'{file_prefix}_encoder_{timestamp}.pkl')
-            if os.path.exists(model_path):
+            if os.path.exists(model_path) and os.path.exists(enc_path):
                 with open(model_path, 'rb') as f:
                     self.models[target_key] = pickle.load(f)
-                logger.info(f"Loaded model for {target_key}")
-            if os.path.exists(enc_path):
                 with open(enc_path, 'rb') as f:
                     self.target_encoders[target_key] = pickle.load(f)
-                logger.info(f"Loaded encoder for {target_key}")
+                logger.info(f"Loaded model for {target_key}")
     
     def _load_legacy(self):
         """Fallback: load theo tên file cũ (single target)."""
@@ -598,7 +607,7 @@ class SuggestionEngine:
         # Tính số trường input để tính doChinhXac
         input_fields_count = sum(1 for v in input_data.values() if v is not None)
         
-        for idx in top_indices:
+        for pos, idx in enumerate(top_indices, start=1):
             row = df.iloc[idx]
             suggestion = self._build_suggestion_dict(row)
             if include_score:
@@ -609,26 +618,23 @@ class SuggestionEngine:
                         if str(row.get(field, '')) == str(value):
                             matched_fields += 1
                 
-                # Tính confidence_score: tỉ lệ trường khớp + điểm ranking
+                # Tính confidence_score: tỉ lệ trường khớp + điểm ranking + vị trí
                 if input_fields_count > 0:
                     match_ratio = matched_fields / input_fields_count
                 else:
                     match_ratio = 1.0
                 
-                # Kết hợp: 50% từ match ratio, 50% từ ranking để phân biệt tốt hơn
+                # Rank score: normalize raw score về [0, 1]
                 rank_score = 1.0
                 if hasattr(scores, '__len__') and len(scores) > 0:
-                    # Tìm score tương ứng với idx này
                     try:
                         if len(df_filtered) < len(df):
-                            # idx là index trong df gốc, cần tìm trong df_filtered
                             filtered_idx = df_filtered.index.get_loc(idx)
                             score_val = scores[filtered_idx] if filtered_idx < len(scores) else 0
                         else:
                             score_val = scores[idx] if idx < len(scores) else 0
                         max_score = max(scores.max(), 1e-9)
                         min_score = scores.min()
-                        # Normalize về [0, 1] với min=0 nếu có thể
                         if max_score > min_score:
                             rank_score = (score_val - min_score) / (max_score - min_score)
                         else:
@@ -636,10 +642,17 @@ class SuggestionEngine:
                     except (KeyError, IndexError, TypeError):
                         rank_score = 1.0
                 
-                # Kết hợp: 50% match ratio + 50% rank score để phân biệt tốt hơn
-                confidence = 0.5 * match_ratio + 0.5 * rank_score
+                # Yếu tố vị trí: item 1 = 1.0, item 2 = (n-1)/n, ..., item n = 1/n
+                # Giúp phân biệt khi match_ratio và rank_score trùng nhau
+                n_items = len(top_indices)
+                position_factor = (n_items - pos + 1) / max(n_items, 1)
+                
+                # Kết hợp 3 thành phần: match (35%), rank score (35%), vị trí (30%)
+                confidence = 0.35 * match_ratio + 0.35 * rank_score + 0.30 * position_factor
                 suggestion['confidence_score'] = round(confidence, 4)
             results.append(suggestion)
+        # Sắp xếp theo độ chính xác giảm dần
+        results.sort(key=lambda x: x.get('confidence_score', 0), reverse=True)
         return results
     
     def _build_suggestion_dict(self, row) -> Dict:
@@ -742,6 +755,8 @@ class SuggestionEngine:
                 
                 results.append(suggestion)
         
+        # Sắp xếp theo độ chính xác giảm dần
+        results.sort(key=lambda x: x.get('confidence_score', 0), reverse=True)
         return results
     
     def _fallback_suggest(
@@ -795,6 +810,178 @@ def get_request_id() -> str:
     return generate_request_id()
 
 
+ATTR_METADATA = {
+    # Các trường từ bảng thuộc tính máy cắt
+    "LOAI": {
+        "label": "Mã hiệu",
+        "type": "CBLST",
+        "order": 14,
+    },
+    "U_TT": {
+        "label": "Điện áp thao tác (Động cơ tích năng và mạch điều khiển)",
+        "type": "CBLST",
+        "order": 16,
+    },
+    "KIEU_DAPHQ": {
+        "label": "Môi trường dập hồ quang",
+        "type": "CBLST",
+        "order": 3,
+    },
+    "I_DM": {
+        "label": "Dòng điện định mức",
+        "type": "CBLST",
+        "order": 5,
+    },
+    "U_DM": {
+        "label": "Điện áp làm việc lớn nhất",
+        "type": "CBLST",
+        "order": 4,
+    },
+    "KIEU_CD": {
+        "label": "Kiểu truyền động",
+        "type": "CBLST",
+        "order": 10,
+    },
+    "TG_CATNM": {
+        "label": "Thời gian cắt ngắn mạch",
+        "type": "CBLST",
+        "order": 11,
+    },
+    "PHA": {
+        "label": "Pha lắp đặt",
+        "type": "CBLST",
+        "order": 1,
+    },
+    "U_CD": {
+        "label": "U cách điện với đất",
+        "type": "INPUT",
+        "order": 13,
+    },
+    "KIEU_MC": {
+        "label": "Loại",
+        "type": "CBLST",
+        "order": 2,
+    },
+    "KNCDNMDM": {
+        "label": "Khả năng chịu dòng ngắn mạch định mức",
+        "type": "CBLST",
+        "order": 6,
+    },
+    "R_TXMC": {
+        "label": "Điện trở tiếp xúc của mạch chính",
+        "type": "INPUT",
+        "order": 7,
+    },
+    "CT_DC": {
+        "label": "Chu trình đóng cắt định mức",
+        "type": "CBLST",
+        "order": 8,
+    },
+    "CDDRNN": {
+        "label": "Chiều dài đường rò nhỏ nhất qua bề mặt cách điện",
+        "type": "CBLST",
+        "order": 9,
+    },
+    "SLDC_CK": {
+        "label": "Tổng số lần đóng cắt cơ khí",
+        "type": "INPUT",
+        "order": 15,
+    },
+    "SLDC_IDM": {
+        "label": "Số lần đóng cắt về điện với dòng định mức",
+        "type": "INPUT",
+        "order": 17,
+    },
+    "SLDC_INMDM": {
+        "label": "Số lần đóng cắt về điện với dòng ngắn mạch định mức",
+        "type": "INPUT",
+        "order": 18,
+    },
+    "CC_CD": {
+        "label": "Chủng loại cơ cấu tích năng",
+        "type": "CBLST",
+        "order": 19,
+    },
+    "TG_CAT": {
+        "label": "Thời gian cắt tại điện áp nguồn thao tác định mức",
+        "type": "INPUT",
+        "order": 20,
+    },
+    "TG_DONG": {
+        "label": "Thời gian đóng tại điện áp nguồn thao tác định mức",
+        "type": "INPUT",
+        "order": 21,
+    },
+    "TYLE_RO_KHI_SF6": {
+        "label": "Tỷ lệ rò khí SF6 trên tổng khối lượng khí trên một năm",
+        "type": "INPUT",
+        "order": 22,
+    },
+    "KL_SF6": {
+        "label": "Khối lượng khí SF6",
+        "type": "INPUT",
+        "order": 23,
+    },
+    "AS_SF6_DM": {
+        "label": "Áp suất khí SF6 định mức",
+        "type": "INPUT",
+        "order": 24,
+    },
+    "CB_AS_SF6_CD1": {
+        "label": "Cảnh báo áp suất khí SF6 cấp độ 1",
+        "type": "INPUT",
+        "order": 25,
+    },
+    "CB_AS_SF6_CD2": {
+        "label": "Cảnh báo áp suất khí SF6 cấp độ 2",
+        "type": "INPUT",
+        "order": 26,
+    },
+    # Bổ sung thêm các trường meta bạn yêu cầu
+    "P_MANUFACTURERID": {
+        "label": "Hãng sản xuất",
+        "type": "INPUT",
+        "order": 0,
+    },
+    "DATEMANUFACTURE": {
+        "label": "Năm sản xuất",
+        "type": "CBLST",
+        "order": 0,
+    },
+    "NATIONALFACT": {
+        "label": "Nước sản xuất",
+        "type": "CBLST",
+        "order": 0,
+    },
+    "OWNER": {
+        "label": "Sở hữu",
+        "type": "CBLST",
+        "order": 0,
+    },
+}
+
+
+def enrich_thuoc_tinh(raw: Dict[str, Any]) -> Dict[str, Any]:
+    """
+    Thêm thông tin ATTRDESC|ATTTYPEID|ATTRORD vào sau giá trị:
+    value|label|type|order, chỉ áp dụng cho các trường không có hậu tố _DESC.
+    """
+    enriched: Dict[str, Any] = {}
+    for key, value in raw.items():
+        if value is None:
+            enriched[key] = value
+            continue
+        if key.endswith("_DESC"):
+            enriched[key] = value
+            continue
+        meta = ATTR_METADATA.get(key)
+        if meta:
+            enriched[key] = f"{value}|{meta['label']}|{meta['type']}|{meta['order']}"
+        else:
+            enriched[key] = value
+    return enriched
+
+
 def build_goi_y_list(suggestions: List[Dict]) -> List[Dict]:
     """
     Chuyển danh sách suggestions sang format [{ thuTu, thuocTinh, doChinhXac }].
@@ -812,7 +999,8 @@ def build_goi_y_list(suggestions: List[Dict]) -> List[Dict]:
         # Dùng confidence_score để tính doChinhXac
         raw = [float(x) for x in scores]
         for i, s in enumerate(suggestions):
-            thuoc_tinh = {k: v for k, v in s.items() if k != 'confidence_score'}
+            thuoc_tinh_raw = {k: v for k, v in s.items() if k != 'confidence_score'}
+            thuoc_tinh = enrich_thuoc_tinh(thuoc_tinh_raw)
             pct = raw[i] * 100
             do_chinh_xac = "100%" if pct >= 99.995 else f"{pct:.2f}%"
             result.append({
@@ -829,7 +1017,8 @@ def build_goi_y_list(suggestions: List[Dict]) -> List[Dict]:
             step = 20.0 / (n - 1)
             pcts = [100.0 - i * step for i in range(n)]
         for i, s in enumerate(suggestions):
-            thuoc_tinh = {k: v for k, v in s.items() if k != 'confidence_score'}
+            thuoc_tinh_raw = {k: v for k, v in s.items() if k != 'confidence_score'}
+            thuoc_tinh = enrich_thuoc_tinh(thuoc_tinh_raw)
             pct = pcts[i]
             do_chinh_xac = "100%" if pct >= 99.995 else f"{pct:.2f}%"
             result.append({
@@ -846,9 +1035,9 @@ def build_goi_y_list(suggestions: List[Dict]) -> List[Dict]:
 
 @app.on_event("startup")
 async def startup_event():
-    """Load models on startup"""
+    """Load models on startup (chạy trong executor để không block event loop)"""
     logger.info("Starting PMIS Device Suggestion API...")
-    model_loader.load()
+    await asyncio.to_thread(model_loader.load)
     logger.info("API ready!")
 
 
@@ -1011,8 +1200,8 @@ async def general_exception_handler(request: Request, exc: Exception):
 if __name__ == "__main__":
     uvicorn.run(
         "app:app",
-        host="0.0.0.0",
-        port=8000,
+        host="127.0.0.1",
+        port=8001,
         reload=True,
         log_level="info"
     )
